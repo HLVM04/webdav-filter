@@ -1,0 +1,21 @@
+services:
+  webdav-filter:
+    build: .
+    restart: unless-stopped
+    environment:
+      TORBOX_API_KEY: ${TORBOX_API_KEY}
+      RUST_LOG: webdav_filter=info
+    ports:
+      - "127.0.0.1:9999:9999"
+    volumes:
+      - ./config.yml:/etc/webdav-filter/config.yml:ro
+      - webdav-filter-state:/var/lib/webdav-filter
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+volumes:
+  webdav-filter-state:
+

@@ -1,0 +1,9 @@
+target
+.git
+.env
+config.yml
+config.local.yml
+config.private.yml
+secrets
+state
+

@@ -1,0 +1,11 @@
+/target/
+/config.yml
+/config.local.yml
+/config.private.yml
+/.env
+/secrets/
+/state/
+*.db
+*.db-shm
+*.db-wal
+

@@ -1,0 +1,57 @@
+version: 1
+
+listen:
+  host: 0.0.0.0
+  port: 9999
+
+upstream:
+  url: https://webdav.example.com/
+  username: webdav-user
+  password_env: WEBDAV_PASSWORD
+  connect_timeout_secs: 10
+  header_timeout_secs: 30
+  crawl_concurrency: 8
+
+# Remove this section for anonymous access on a trusted private network.
+downstream_auth:
+  username: media
+  password_env: FILTER_PASSWORD
+
+refresh:
+  interval_secs: 5
+  full_interval_secs: 900
+  # A provider-neutral pre-scan hook. Uncomment when the upstream offers one.
+  # hook:
+  #   url: https://webdav.example.com/refresh/
+  #   method: GET
+  #   timeout_secs: 15
+  #   cooldown_secs: 5
+  #   reuse_upstream_auth: true
+
+delete:
+  # A DELETE on any descendant deletes its complete top-level source item.
+  enabled: false
+
+state:
+  database: /var/lib/webdav-filter/index.db
+
+directories:
+  anime:
+    group: media
+    group_order: 10
+    filters:
+      - regex: /\b[a-fA-F0-9]{8}\b/
+      - any_file_inside_regex: /\b[a-fA-F0-9]{8}\b/
+
+  shows:
+    group: media
+    group_order: 20
+    filters:
+      - has_episodes: true
+
+  movies:
+    group: media
+    group_order: 30
+    only_show_the_biggest_file: true
+    filters:
+      - regex: /.*/
