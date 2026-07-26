@@ -10,7 +10,11 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 
 FROM debian:bookworm-slim
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
+    && apt-get install -y --no-install-recommends \
+        bash \
+        ca-certificates \
+        curl \
+        libxml2-utils \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 10001 --create-home webdav-filter \
     && mkdir -p /etc/webdav-filter /var/lib/webdav-filter \
