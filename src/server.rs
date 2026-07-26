@@ -121,6 +121,7 @@ fn propfind(state: &AppState, request: &Request) -> Response {
             Some("application/xml; charset=utf-8"),
         );
     }
+    let dav_prefix = has_dav_prefix(request.uri().path());
     let path = match canonical_path(request.uri().path()) {
         Ok(path) => path,
         Err(status) => return empty(status),
@@ -136,7 +137,7 @@ fn propfind(state: &AppState, request: &Request) -> Response {
     let mut xml =
         String::from("<?xml version=\"1.0\" encoding=\"utf-8\"?><d:multistatus xmlns:d=\"DAV:\">");
     for value in values {
-        write_prop_response(&mut xml, value);
+        write_prop_response(&mut xml, value, dav_prefix);
     }
     xml.push_str("</d:multistatus>");
     response(
@@ -252,6 +253,15 @@ fn canonical_path(raw: &str) -> Result<String, StatusCode> {
     let decoded = percent_decode_str(raw)
         .decode_utf8()
         .map_err(|_| StatusCode::BAD_REQUEST)?;
+    let decoded = if let Some(rest) = decoded.strip_prefix("/dav") {
+        if rest.is_empty() || rest.starts_with('/') {
+            if rest.is_empty() { "/" } else { rest }
+        } else {
+            decoded.as_ref()
+        }
+    } else {
+        decoded.as_ref()
+    };
     let mut segments = Vec::new();
     for segment in decoded.split('/') {
         match segment {
@@ -268,8 +278,19 @@ fn canonical_path(raw: &str) -> Result<String, StatusCode> {
     })
 }
 
-fn write_prop_response(xml: &mut String, value: &VirtualResource) {
-    let href = encode_path(&value.virtual_path, value.resource.is_collection);
+fn has_dav_prefix(raw: &str) -> bool {
+    let Ok(decoded) = percent_decode_str(raw).decode_utf8() else {
+        return false;
+    };
+    decoded == "/dav" || decoded.starts_with("/dav/")
+}
+
+fn write_prop_response(xml: &mut String, value: &VirtualResource, dav_prefix: bool) {
+    let href = encode_path(
+        &value.virtual_path,
+        value.resource.is_collection,
+        dav_prefix,
+    );
     xml.push_str("<d:response><d:href>");
     xml.push_str(&escape(&href));
     xml.push_str("</d:href><d:propstat><d:prop><d:displayname>");
@@ -306,12 +327,19 @@ fn write_prop_response(xml: &mut String, value: &VirtualResource) {
     xml.push_str("</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>");
 }
 
-fn encode_path(path: &str, collection: bool) -> String {
+fn encode_path(path: &str, collection: bool, dav_prefix: bool) -> String {
     let mut encoded = path
         .split('/')
         .map(|segment| utf8_percent_encode(segment, NON_ALPHANUMERIC).to_string())
         .collect::<Vec<_>>()
         .join("/");
+    if dav_prefix {
+        encoded = if encoded == "/" {
+            "/dav/".into()
+        } else {
+            format!("/dav{encoded}")
+        };
+    }
     if collection && !encoded.ends_with('/') {
         encoded.push('/');
     }
@@ -366,6 +394,10 @@ mod tests {
             "/movies/Film One"
         );
         assert_eq!(canonical_path("/").unwrap(), "/");
+        assert_eq!(canonical_path("/dav").unwrap(), "/");
+        assert_eq!(canonical_path("/dav/movies").unwrap(), "/movies");
+        assert_eq!(encode_path("/", true, true), "/dav/");
+        assert_eq!(encode_path("/movies", true, true), "/dav/movies/");
         assert!(canonical_path("/movies/../secret").is_err());
     }
 }
